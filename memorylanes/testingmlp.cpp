@@ -19,15 +19,15 @@ int measure(size_t length, char * result) {
     std::swap(bigarray[i], bigarray[swapidx]);
   }
 
-  float time_measure[30];
+  float time_measure[NAKED_MAX];
   size_t howmanyhits = 1 * 4 * 5 * 6 * 7 * 8 * 9 * 11 * 13;
   int repeat = 5;
 
   naked_measure_body(time_measure, bigarray, howmanyhits, repeat);
-  for (size_t i = 1; i <= 29; i++) {
+  for (size_t i = 1; i < NAKED_MAX; i++) {
         result+= sprintf(result, "%zu %f\n", i, time_measure[i]);
   }
-  for (size_t i = 2; i <= 29; i++) {
+  for (size_t i = 2; i < NAKED_MAX; i++) {
 
     float ratio = (time_measure[i - 1] - time_measure[i]) / time_measure[i - 1];
 
