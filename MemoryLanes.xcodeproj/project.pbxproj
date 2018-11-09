@@ -305,7 +305,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = W96L4UJULU;
+				DEVELOPMENT_TEAM = LQ4M2592H5;
 				INFOPLIST_FILE = memorylanes/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -322,7 +322,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = W96L4UJULU;
+				DEVELOPMENT_TEAM = LQ4M2592H5;
 				INFOPLIST_FILE = memorylanes/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
 				LD_RUNPATH_SEARCH_PATHS = (

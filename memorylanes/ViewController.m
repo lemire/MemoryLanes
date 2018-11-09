@@ -29,12 +29,8 @@ int measure(size_t length, char* result);
 - (void)benchmark {
     char result[10000];
     size_t length = 1 << 25;
-    for (size_t i = 0; i < 3; i++) {
-        measure(length, result);
-    }
-    printf("result: %s\n",result);
+    measure(length, result);
     self.topText.text = [NSString stringWithUTF8String:result];
-    
 }
 
 @end
