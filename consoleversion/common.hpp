@@ -7,7 +7,7 @@
 #include <time.h>
 
 /* max MLP value tested with the naked strategy */
-constexpr int NAKED_MAX = 30;
+constexpr int NAKED_MAX = 100;
 
 /* if true, try the pure pointer chasing strategy */
 constexpr int DO_NAKED = true;

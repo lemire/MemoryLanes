@@ -163,11 +163,5 @@ int naked_measure(size_t length) {
 
 int main() {
   size_t length = 1 << 25;
-  for (size_t i = 0; i < 3; i++) {
-    if (DO_NAKED) {
-      naked_measure(length);
-    } else {
-      measure(length);
-    }
-  }
+  naked_measure(length);
 }
