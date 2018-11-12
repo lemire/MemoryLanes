@@ -2,7 +2,7 @@
 
 print("#include \"common.hpp\"\n")
 
-for i in range(1,30):
+for i in range(1,100):
     print("uint64_t naked_access_%d(uint64_t *bigarray, size_t howmanyhits) {"%(i))
     for j in range(1,i+1):
         print("uint64_t val%d = %d;" %(j,j))
@@ -41,5 +41,5 @@ float time_me%d(uint64_t *bigarray, size_t howmanyhits,
 
 
 print("void naked_measure_body(float (&time_measure)[NAKED_MAX], uint64_t *bigarray, size_t howmanyhits, size_t repeat) {")
-for i in range(1, 30):  print("  time_measure[%d] = time_me%d(bigarray, howmanyhits, repeat);"%(i,i))
+for i in range(1, 100):  print("  time_measure[%d] = time_me%d(bigarray, howmanyhits, repeat);"%(i,i))
 print("}")
