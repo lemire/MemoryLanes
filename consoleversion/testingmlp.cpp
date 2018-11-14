@@ -140,22 +140,25 @@ int naked_measure(size_t length) {
     }
   } while (target != 1);
   printf("mindist = %zu vs %zu \n", mindist, (size_t) (length/NAKED_MAX));
-  uint64_t sum = 0;
+  uint64_t sum1 = 0, sum2 = 0, sum3 = 0, sum4 = 0;
   clock_t begin_time, end_time;
-  int sumrepeat = 5;
+  int sumrepeat = 10;
   float mintime = 99999999999;
   while(sumrepeat-- >0) {
     begin_time = clock();
-    for(size_t i = 0; i < length; i++) {
-      sum += bigarray[i];
+    for(size_t i = 0; i < length - 3 * 8; i+= 32) {
+      sum1 ^= bigarray[i];
+      sum2 ^= bigarray[i + 8];
+      sum3 ^= bigarray[i + 16];
+      sum4 ^= bigarray[i + 24];
     }
     end_time = clock();
     float tv = float(end_time - begin_time) / CLOCKS_PER_SEC;
     if (tv < mintime)
       mintime = tv;
   }
-  if(sum == 0x1010) printf("bug");
-  printf("Time to sum up the array (linear scan) %.3f s (x 8 = %.3f s), bandwidth = %.1f MB/s \n ",mintime,8*mintime, length * sizeof(uint64_t) / mintime / (1024.0 * 1024.0));
+  if(sum1 ^ sum2 ^ sum3 ^ sum4 == 0x1010) printf("bug");
+  printf("Time to sum up the array (linear scan) %.3f s (x 8 = %.3f s), bandwidth = %.1f MB/s \n",mintime,8*mintime, length * sizeof(uint64_t) / mintime / (1024.0 * 1024.0));
 
   float time_measure[NAKED_MAX];
   size_t howmanyhits = 1 * 4 * 5 * 6 * 7 * 8 * 9 * 11 * 13;
