@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-print("#include \"common.hpp\"\n")
+print("#include \"common.hpp\"\n#include \"math.h\"\n")
 
 for i in range(1,100):
     print("uint64_t naked_access_%d(uint64_t *bigarray, size_t howmanyhits) {"%(i))
@@ -34,10 +34,15 @@ float time_me%d(uint64_t *bigarray, size_t howmanyhits,
   if (bogus == 0x010101) {
     printf("ping!");
   }
-  std::cout << %d << " " << mintime << std::endl;
+  // compute the bandwidth 
+  size_t cachelineinbytes = 64;
+  size_t volume = ( howmanyhits / %d * %d ) * cachelineinbytes / sizeof(uint64_t) ;  
+  double mbpers = volume / mintime / (1024.0 * 1024.);
+  double nanoperquery = 1000 * 1000 *  1000 * mintime / ( howmanyhits / %d * %d );
+  printf("%%12d %%12f %%12.0f     %%12.1f \\n", %d, mintime, round(mbpers), round(nanoperquery));
   return mintime;
 }
-"""%(i,i,i))
+"""%(i,i,i,i,i,i,i))
 
 
 print("void naked_measure_body(float (&time_measure)[NAKED_MAX], uint64_t *bigarray, size_t howmanyhits, size_t repeat) {")

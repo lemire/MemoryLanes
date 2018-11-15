@@ -1,4 +1,4 @@
-CXXFLAGS = -O3 -std=c++11 
+CXXFLAGS = -O3 -std=c++11 -Wall 
 
 testingmlp: testingmlp.o generated.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
