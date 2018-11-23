@@ -2,6 +2,35 @@
 
 #include <random>
 
+float time_one(uint64_t *bigarray, size_t howmanyhits, size_t repeat, access_method_f *method, size_t lanes, float firsttime, float lasttime) {
+  clock_t begin_time, end_time;
+  float mintime = 99999999999;
+  uint64_t bogus = 0;
+  for (size_t r = 0; r < repeat; r++) {
+    begin_time = clock();
+    bogus += method(bigarray, howmanyhits);
+    end_time = clock();
+    float tv = float(end_time - begin_time) / CLOCKS_PER_SEC;
+    if (tv < mintime)
+      mintime = tv;
+  }
+  if (bogus == 0x010101) {
+    printf("ping!");
+  }
+  // compute the bandwidth 
+  size_t cachelineinbytes = 64;
+  size_t rounded_hits = ( howmanyhits / lanes * lanes );
+  size_t volume = rounded_hits * cachelineinbytes;
+  double mbpers = volume / mintime / (1024.0 * 1024.);
+  double nanoperquery = 1000 * 1000 *  1000 * mintime / rounded_hits;
+  double expected = lasttime * (lanes - 1) / lanes;  // expected time if at max efficiency
+  double efficiency = lanes == 1 ? 0 : 100.0 * (lasttime - mintime) / (lasttime - expected);
+  double speedup = lanes == 1 ? 1 : firsttime / mintime;
+  printf("%12zu %12f %10.0f  %8.1f  %6.0f%%  %9.1f\n",
+    lanes, mintime, round(mbpers), nanoperquery, efficiency, speedup);
+  return mintime;
+}
+
 int naked_measure(size_t length) {
   std::cout << "Initializing array made of " << length << " 64-bit words." << std::endl;
   uint64_t *bigarray = (uint64_t *)malloc(sizeof(uint64_t) * length);
@@ -80,9 +109,14 @@ int naked_measure(size_t length) {
   float time_measure[NAKED_MAX];
   size_t howmanyhits = length; //1 * 4 * 5 * 6 * 7 * 8 * 9 * 11 * 13 * 17;
   int repeat = 5;
-  printf("--------------------------------------------------------------\n");
-  printf("- # of lanes --- time (s) ---- bandwidth (MB/s) -- ns/hit ----\n");
-  printf("--------------------------------------------------------------\n");
+  printf("Legend:\n"
+  "  BandW: Implied bandwidth (assuming 64-byte cache line) in MB/s\n"
+  "  %% Eff: Effectiness of this lane count compared to the prior, as a %% of ideal\n"
+  "  Speedup: Speedup factor for this many lanes versus one lane\n"
+  );
+  printf("---------------------------------------------------------------------\n");
+  printf("- # of lanes --- time (s) ---- BandW -- ns/hit -- %% Eff -- Speedup --\n");
+  printf("---------------------------------------------------------------------\n");
   naked_measure_body(time_measure, bigarray, howmanyhits, repeat);
 
   for (size_t i = 2; i < NAKED_MAX; i++) {

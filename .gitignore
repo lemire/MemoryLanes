@@ -1,0 +1,19 @@
+# vscode files
+.vscode
+
+# eclipse files
+.cproject
+.project
+.classpath
+.settings
+
+*.o
+
+# perf output
+perf.data*
+
+# maven output
+target
+
+consoleversion/generated.cpp
+consoleversion/testingmlp
