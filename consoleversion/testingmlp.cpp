@@ -1,8 +1,16 @@
 #include "common.hpp"
+#include "page-info.h"
 
+#include <malloc.h>
 #include <random>
 
-float time_one(uint64_t *bigarray, size_t howmanyhits, size_t repeat, access_method_f *method, size_t lanes, float firsttime, float lasttime) {
+#define MIN_HITS (1l << 25)
+#define KPF_THP 22
+
+float time_one(Line *bigarray, size_t howmanyhits, size_t repeat, access_method_f *method, size_t lanes, float firsttime, float lasttime) {
+  if (lanes > 20) {
+    return 0;
+  }
   clock_t begin_time, end_time;
   float mintime = 99999999999;
   uint64_t bogus = 0;
@@ -31,13 +39,27 @@ float time_one(uint64_t *bigarray, size_t howmanyhits, size_t repeat, access_met
   return mintime;
 }
 
+
 int naked_measure(size_t length) {
-  std::cout << "Initializing array made of " << length << " 64-bit words." << std::endl;
-  uint64_t *bigarray = (uint64_t *)malloc(sizeof(uint64_t) * length);
+  size_t elemsize = sizeof(Line);
+  std::cout << "Initializing array made of " << length << " " << elemsize << "-byte elements. ("
+    << (length*elemsize/(1024*1024)) << " MiB)" << std::endl;
+  size_t bytelen = elemsize * length;
+  Line *bigarray = (Line *)memalign(2 * 1024 * 1024, bytelen);
   // create a cycle of maximum length within the bigarray
   for (size_t i = 0; i < length; i++) {
-    bigarray[i] = i;
+    bigarray[i].idx = i;
   }
+  page_info_array pinfo = get_info_for_range(bigarray, bigarray + length);
+  flag_count thp_count = get_flag_count(pinfo, KPF_THP);
+  if (thp_count.pages_available) {
+    printf("Source pages allocated with transparent hugepages: %4.1f%% (%lu pages, %4.1f%% flagged)\n",
+        100.0 * thp_count.pages_set / thp_count.pages_total, thp_count.pages_total,
+        100.0 * thp_count.pages_available / thp_count.pages_total);
+  } else {
+    printf("Couldn't determine hugepage info (you are probably not running as root)\n");
+  }
+
   std::cout << "Applying Sattolo's algorithm. " << std::endl;
   // Sattolo
   std::mt19937_64 engine;
@@ -50,10 +72,10 @@ int naked_measure(size_t length) {
   std::cout << "Surgery on the long cycle. " << std::endl;
   uint64_t current_start = 1;
   uint64_t current_pointer = NAKED_MAX + 1;//  arbitrary
-  uint64_t a = bigarray[current_pointer];
-  uint64_t b = bigarray[a];
-  bigarray[a] = current_start;
-  bigarray[current_start] = b;
+  uint64_t a = bigarray[current_pointer].idx;
+  uint64_t b = bigarray[a].idx;
+  bigarray[a].idx = current_start;
+  bigarray[current_start].idx = b;
   current_pointer = current_start;
   current_start++;
   size_t targetdist = (length - NAKED_MAX - 1 - 1) / NAKED_MAX;
@@ -61,13 +83,13 @@ int naked_measure(size_t length) {
   while(current_start <= NAKED_MAX) {
     cdist = 0;
     while(cdist < targetdist) {
-      current_pointer = bigarray[current_pointer];
+      current_pointer = bigarray[current_pointer].idx;
       cdist++;
     }
     a = current_pointer;
-    b = bigarray[a];
-    bigarray[a] = current_start;
-    bigarray[current_start] = b;
+    b = bigarray[a].idx;
+    bigarray[a].idx = current_start;
+    bigarray[current_start].idx = b;
     current_pointer = current_start;
     current_start++;
   }
@@ -78,7 +100,7 @@ int naked_measure(size_t length) {
   size_t currentdist = 0;
   uint64_t target = 1;
   do {
-    target = bigarray[target];
+    target = bigarray[target].idx;
     currentdist ++;
     if((target > 0) && (target < NAKED_MAX)) {
        if(mindist > currentdist) mindist = currentdist;
@@ -93,10 +115,10 @@ int naked_measure(size_t length) {
   while(sumrepeat-- >0) {
     begin_time = clock();
     for(size_t i = 0; i < length - 3 * 8; i+= 32) {
-      sum1 ^= bigarray[i];
-      sum2 ^= bigarray[i + 8];
-      sum3 ^= bigarray[i + 16];
-      sum4 ^= bigarray[i + 24];
+      sum1 ^= bigarray[i].idx;
+      sum2 ^= bigarray[i + 8].idx;
+      sum3 ^= bigarray[i + 16].idx;
+      sum4 ^= bigarray[i + 24].idx;
     }
     end_time = clock();
     float tv = float(end_time - begin_time) / CLOCKS_PER_SEC;
@@ -107,7 +129,7 @@ int naked_measure(size_t length) {
   printf("Time to sum up the array (linear scan) %.3f s (x 8 = %.3f s), bandwidth = %.1f MB/s \n",mintime,8*mintime, length * sizeof(uint64_t) / mintime / (1024.0 * 1024.0));
 
   float time_measure[NAKED_MAX];
-  size_t howmanyhits = length; //1 * 4 * 5 * 6 * 7 * 8 * 9 * 11 * 13 * 17;
+  size_t howmanyhits = length;
   int repeat = 5;
   printf("Legend:\n"
   "  BandW: Implied bandwidth (assuming 64-byte cache line) in MB/s\n"
@@ -136,6 +158,6 @@ int naked_measure(size_t length) {
 }
 
 int main() {
-  size_t length = 1 << 25;
+  size_t length = 1 << 22;
   naked_measure(length);
 }
