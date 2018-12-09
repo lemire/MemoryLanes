@@ -1,5 +1,9 @@
 CXXFLAGS = -O3 -std=c++11 -Wall 
 
+.PHONY = clean test
+
+.DELETE_ON_ERROR:
+
 testingmlp: testingmlp.o generated.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
