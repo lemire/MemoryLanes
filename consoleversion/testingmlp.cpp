@@ -1,9 +1,13 @@
 #include "common.hpp"
+#include "page-info.h"
 
-#include <assert.h>
+#include <chrono>
+#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
 #include <random>
-#include <chrono>
+
+#include <sys/mman.h>
 
 int getenv_int(const char *var, int def) {
     const char *val = getenv(var);
@@ -98,6 +102,7 @@ void make_cycle(uint64_t* array, uint64_t* index, size_t length) {
   for (size_t i = 0; i < length; i++) {
     array[i] = i;
   }
+
   if (!do_csv) {
     printi("Applying Sattolo's algorithm... ");
     fflush(ifile);
@@ -177,7 +182,7 @@ int naked_measure(uint64_t* bigarray, uint64_t* index, size_t length, size_t max
   }
 
   float time_measure[NAKED_MAX] = {};
-  size_t howmanyhits = length; //1 * 4 * 5 * 6 * 7 * 8 * 9 * 11 * 13 * 17;
+  size_t howmanyhits = length;
   int repeat = 5;
   if (do_csv) {
     printi("Running test for length %zu\n", length);
@@ -218,13 +223,35 @@ int naked_measure(uint64_t* bigarray, uint64_t* index, size_t length, size_t max
   return 10000;
 }
 
+void print_page_info(uint64_t *array, size_t length) {
+  constexpr int KPF_THP = 22;
+  page_info_array pinfo = get_info_for_range(array, array + length);
+  flag_count thp_count = get_flag_count(pinfo, KPF_THP);
+  if (thp_count.pages_available) {
+    printi("Source pages allocated with transparent hugepages: %4.1f%% (%lu pages, %4.1f%% flagged)\n",
+        100.0 * thp_count.pages_set / thp_count.pages_total, thp_count.pages_total,
+        100.0 * thp_count.pages_available / thp_count.pages_total);
+  } else {
+    printi("Couldn't determine hugepage info (you are probably not running as root)\n");
+  }
+}
+
+void *malloc_aligned(size_t size, size_t alignment) {
+  size = ((size - 1) / alignment + 1) * alignment;
+  return memalign(alignment, size);
+}
+
 int main() {
   assert(do_csv >= 0 && do_csv <= 2);
   printi("CLOCKS_PER_SEC: %zu\n", (size_t)CLOCKS_PER_SEC);
   size_t max_mlp = getenv_int("MLP_MAX_MLP", 30);
   printi("Initializing array made of %zu 64-bit words (%5.2f MiB).\n", len_end, len_end * 8. / 1024. / 1024.);
-  uint64_t *array = (uint64_t *)malloc(sizeof(uint64_t) * len_end);
-  uint64_t *index    = (uint64_t *)malloc(sizeof(uint64_t) * len_end);
+  uint64_t *array = (uint64_t *)malloc_aligned(sizeof(uint64_t) * len_end, 2 * 1024 * 1024);
+  madvise(array, len_end * 8, MADV_HUGEPAGE);
+  std::fill(array, array + len_end, -1);
+  uint64_t *index    = (uint64_t *)malloc_aligned(sizeof(uint64_t) * len_end, 2 * 1024 * 1024);
+
+  print_page_info(array, len_end);
 
   if (!do_csv) {
     printi("Legend:\n"

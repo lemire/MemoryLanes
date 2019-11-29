@@ -45,6 +45,7 @@ p.add_argument('--title', help='Set chart title', default='Some chart (use --tit
 p.add_argument('--xlabel', help='Set x axis label')
 p.add_argument('--ylabel', help='Set y axis label')
 p.add_argument('--suffix-names', help='Suffix each column name with the file it came from', action='store_true')
+p.add_argument('--no-legend', help='Do no display the legend', action='store_true')
 
 # data manipulation
 p.add_argument('--jitter', help='Apply horizontal (x-axis) jitter of the given relative amount (default 0.1)',
@@ -59,6 +60,8 @@ p.add_argument('--marker', help='use the given marker', type=str)
 p.add_argument('--markersize', help='use the given marker', type=float)
 p.add_argument('--linewidth', help='use the given line width', type=float)
 p.add_argument('--tight', help='use tight_layout for less space around chart', action='store_true')
+p.add_argument('--xscale', help='set the xscale value, e.g., --xscale log for logarithmic x axis', type=str)
+p.add_argument('--yscale', help='set the yscale value, e.g., --yscale log for logarithmic y axis', type=str)
 
 
 # debugging
@@ -236,6 +239,11 @@ if args.ylabel:
 
 if args.xlabel:
     ax.set_xlabel(args.xlabel)
+
+if (args.xscale): ax.set_xscale(args.xscale)
+if (args.yscale): ax.set_yscale(args.yscale)
+
+if (args.no_legend): ax.get_legend().remove()
 
 if args.ylim:
     if (len(args.ylim) == 1):

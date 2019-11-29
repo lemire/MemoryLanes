@@ -15,5 +15,7 @@ perf.data*
 # maven output
 target
 
+/*/results
+
 consoleversion/generated.cpp
 consoleversion/testingmlp
