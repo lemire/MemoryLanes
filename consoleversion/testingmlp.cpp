@@ -243,8 +243,7 @@ void *malloc_aligned(size_t size, size_t alignment) {
 
 int main() {
   assert(do_csv >= 0 && do_csv <= 2);
-  printi("CLOCKS_PER_SEC: %zu\n", (size_t)CLOCKS_PER_SEC);
-  size_t max_mlp = getenv_int("MLP_MAX_MLP", 30);
+  size_t max_mlp = getenv_int("MLP_MAX_MLP", 40);
   printi("Initializing array made of %zu 64-bit words (%5.2f MiB).\n", len_end, len_end * 8. / 1024. / 1024.);
   uint64_t *array = (uint64_t *)malloc_aligned(sizeof(uint64_t) * len_end, 2 * 1024 * 1024);
   madvise(array, len_end * 8, MADV_HUGEPAGE);
