@@ -15,9 +15,9 @@ bool getenv_bool(const char *var) {
     return val && strcmp(val, "1") == 0;
 }
 
-const bool do_csv      = getenv_bool("MLP_CSV");
+const int do_csv       = getenv_int("MLP_CSV", 0);
 const size_t len_start = getenv_int("MLP_START", 1) * 1024ull; // 1 KiB
-const size_t len_end   = getenv_int("MLP_START", 32 * 1024) * 1024ull; // 256 MiB
+const size_t len_end   = getenv_int("MLP_STOP", 32 * 1024) * 1024ull; // 256 MiB
 
 
 FILE* ifile = do_csv ? stderr : stdout;
@@ -56,8 +56,13 @@ float time_one(const uint64_t* sp,
   double efficiency = lanes == 1 ? 0 : 100.0 * (lasttime - mintime) / (lasttime - expected);
   double speedup = lanes == 1 ? 1 : firsttime / mintime;
   if (do_csv) {
-    printf("%zu,%f,%.0f,%.1f,%.0f%%,%.3f\n",
-      lanes, mintime, round(mbpers), nanoperquery, efficiency, speedup);
+    // printf("%zu,%f,%.0f,%.1f,%.0f%%,%.3f\n",
+    //   lanes, mintime, round(mbpers), nanoperquery, efficiency, speedup);
+    switch (do_csv) {
+      case 1: printf(",%.1f", mbpers); break;
+      case 2: printf(",%.3f", speedup); break;
+      default: assert(false);
+    }
   } else {
     printf("%12zu %12f %10.0f  %8.1f  %6.0f%%  %9.1f\n",
       lanes, mintime, round(mbpers), nanoperquery, efficiency, speedup);
@@ -157,7 +162,8 @@ int naked_measure(uint64_t* bigarray, size_t length, size_t max_mlp) {
   size_t howmanyhits = length; //1 * 4 * 5 * 6 * 7 * 8 * 9 * 11 * 13 * 17;
   int repeat = 5;
   if (do_csv) {
-    printf("lanes,time,bw,ns/hit,eff,speedup\n");
+    // printf("lanes,time,bw,ns/hit,eff,speedup\n");
+    printf("%zu", length);
   } else {
     printi("Size: %zu (%5.2f KiB, %5.2f MiB)\n", length, length * 8. / 1024., length * 8. / 1024. / 1024.);
     printi("---------------------------------------------------------------------\n");
@@ -170,22 +176,28 @@ int naked_measure(uint64_t* bigarray, size_t length, size_t max_mlp) {
     time_measure[m] = time_one(starting_pointers, bigarray, howmanyhits, repeat, get_method(m), m, time_measure[1], time_measure[m - 1]);
   }
 
-  for (size_t i = 2; !do_csv && i < NAKED_MAX; i++) {
-    float ratio = (time_measure[i - 1] - time_measure[i]) / time_measure[i - 1];
+  if (do_csv) {
+    printf("\n");
+  } else {
+    for (size_t i = 2; i < NAKED_MAX; i++) {
+      float ratio = (time_measure[i - 1] - time_measure[i]) / time_measure[i - 1];
 
-    if (ratio < 0.01) // if a new lane does not add at least 1% of performance...
-    {
-      std::cout << "Maybe you have about " << i - 1 << " parallel paths? "
-                << std::endl;
-      return i - 1;
-      break;
+      if (ratio < 0.01) // if a new lane does not add at least 1% of performance...
+      {
+        std::cout << "Maybe you have about " << i - 1 << " parallel paths? "
+                  << std::endl;
+        return i - 1;
+        break;
+      }
     }
   }
+
   printi("--------------------------------------------------------------\n");
   return 10000;
 }
 
 int main() {
+  assert(do_csv >= 0 && do_csv <= 2);
   printi("CLOCKS_PER_SEC: %zu\n", (size_t)CLOCKS_PER_SEC);
   size_t max_mlp = getenv_int("MLP_MAX_MLP", 30);
   auto array = init_array(len_end, max_mlp);
@@ -196,9 +208,18 @@ int main() {
         "  %% Eff: Effectiness of this lane count compared to the prior, as a %% of ideal\n"
         "  Speedup: Speedup factor for this many lanes versus one lane\n"
     );
+  } else {
+    printf("size,");
+    for (size_t m = 1; m <= max_mlp; m++) {
+      printf("%zu%s", m, m == max_mlp ? "\n" : ",");
+    }
   }
 
-  for (size_t length = len_start; length <= len_end; length *= 2) {
+  // for (size_t length = len_start; length <= len_end; length *= 2) {
+  for (int i = 0; ; i++) {
+    size_t length = round(len_start * pow(2., i / 4.));
+    if (length > len_end)
+      break;
     naked_measure(array, length, max_mlp);
   }
 }
