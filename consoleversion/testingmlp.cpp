@@ -20,8 +20,8 @@ bool getenv_bool(const char *var) {
 }
 
 const int do_csv       = getenv_int("MLP_CSV", 0);
-const size_t len_start = getenv_int("MLP_START", 1) * 1024ull; // 1 KiB
-const size_t len_end   = getenv_int("MLP_STOP", 32 * 1024) * 1024ull; // 256 MiB
+const size_t len_start = getenv_int("MLP_START", 32 * 1024) * 1024ull; // 1 KiB
+const size_t len_end   = getenv_int("MLP_STOP",  32 * 1024) * 1024ull; // 256 MiB
 
 
 FILE* ifile = do_csv ? stderr : stdout;
@@ -124,7 +124,7 @@ void make_cycle(uint64_t* array, uint64_t* index, size_t length) {
     assert(cur < length);
   } while (cur != 0);
 
-  // printi("chain total: %zu\n", cycle_total(array));
+  if (!do_csv) printi("chain total: %zu\n", cycle_total(array));
   assert(total == length);
 }
 
@@ -150,7 +150,8 @@ void setup_pointers(uint64_t* sp, const uint64_t* array, const uint64_t* index, 
       mind = std::min(mind, dist);
       maxd = std::max(maxd, dist);
     }
-    printi("inter-chain dists: ideal=%zu, min=%zu, max=%zu\n", length / mlp, mind, maxd);
+    // printi("inter-chain dists: ideal=%zu, min=%zu, max=%zu\n", length / mlp, mind, maxd);
+    assert(mind >= length / mlp); // check that the min distance is as good as expected
   }
 }
 
