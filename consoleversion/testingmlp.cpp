@@ -92,20 +92,16 @@ size_t cycle_total(const uint64_t* array) {
   return 1 + cycle_dist(array, first, 0);
 }
 
-uint64_t *init_array(size_t length, size_t max_mlp) {
-  printi("Initializing array made of %zu 64-bit words (%5.2f MiB).\n", length, length * 8. / 1024. / 1024.);
-  uint64_t *bigarray = (uint64_t *)malloc(sizeof(uint64_t) * length);
-  return bigarray;
-}
-
 /** make a cycle of length starting at element 0 of the given array */
-void make_cycle(uint64_t* array, size_t length) {
+void make_cycle(uint64_t* array, uint64_t* index, size_t length) {
 // create a cycle of maximum length within the bigarray
   for (size_t i = 0; i < length; i++) {
     array[i] = i;
   }
-  printi("Applying Sattolo's algorithm... ");
-  fflush(ifile);
+  if (!do_csv) {
+    printi("Applying Sattolo's algorithm... ");
+    fflush(ifile);
+  }
   // Sattolo
   std::mt19937_64 engine;
   engine.seed(0xBABE);
@@ -114,54 +110,77 @@ void make_cycle(uint64_t* array, size_t length) {
     size_t swapidx = dist(engine);
     std::swap(array[i], array[swapidx]);
   }
-  printi("chain total: %zu\n", cycle_total(array));
+
+  size_t total = 0;
+  uint64_t cur = 0;
+  do {
+    index[total++] = cur;
+    cur = array[cur];
+    assert(cur < length);
+  } while (cur != 0);
+
+  // printi("chain total: %zu\n", cycle_total(array));
+  assert(total == length);
 }
 
-int naked_measure(uint64_t* bigarray, size_t length, size_t max_mlp) {
-
-  make_cycle(bigarray, length);
-
-  printi("Surgery on the long cycle. \n");
-  uint64_t starting_pointers[NAKED_MAX] = {};
-  starting_pointers[0] = 0;
-  for (size_t sp = 1; sp < NAKED_MAX; sp++) {
-    starting_pointers[sp] = incr(bigarray, starting_pointers[sp - 1], length / NAKED_MAX);
+void setup_pointers(uint64_t* sp, const uint64_t* array, const uint64_t* index, size_t length, size_t mlp) {
+  std::fill(sp, sp + NAKED_MAX, -1);
+  sp[0] = 0;
+  size_t totalinc = 0;
+  for (size_t m = 1; m < mlp; m++) {
+    totalinc += length / mlp;
+    // sp[m] = incr(array, 0, totalinc);
+    assert(totalinc < length);
+    sp[m] = index[totalinc];
   }
 
-  printi("Verifying the neighboring distance... \n");
-  size_t mind = -1, maxd = 0;
-  for (size_t i = 1; i < max_mlp; i++) {
-    uint64_t from = starting_pointers[i];
-    uint64_t to   = starting_pointers[i + 1];
-    size_t dist = cycle_dist(bigarray, from, to);
-    mind = std::min(mind, dist);
-    maxd = std::max(maxd, dist);
-  }
-  printi("inter-chain dists: ideal=%zu, min=%zu, max=%zu\n", length / max_mlp, mind, maxd);
-  uint64_t sum1 = 0, sum2 = 0, sum3 = 0, sum4 = 0;
-  clock_t begin_time, end_time;
-  int sumrepeat = 10;
-  float mintime = 99999999999;
-  while (sumrepeat-- >0) {
-    begin_time = clock();
-    for(size_t i = 0; i < length - 3 * 8; i+= 32) {
-      sum1 ^= bigarray[i];
-      sum2 ^= bigarray[i + 8];
-      sum3 ^= bigarray[i + 16];
-      sum4 ^= bigarray[i + 24];
+  if (!do_csv && mlp > 1) {
+    // printi("Verifying the neighboring distance... \n");
+    size_t mind = -1, maxd = 0;
+    for (size_t i = 0; i < mlp; i++) {
+      bool last = (i + 1 == mlp);
+      uint64_t from = sp[i];
+      uint64_t to   = sp[last ? 0 : i + 1];
+      size_t dist = cycle_dist(array, from, to);
+      mind = std::min(mind, dist);
+      maxd = std::max(maxd, dist);
     }
-    end_time = clock();
-    float tv = float(end_time - begin_time) / CLOCKS_PER_SEC;
-    if (tv < mintime)
-      mintime = tv;
+    printi("inter-chain dists: ideal=%zu, min=%zu, max=%zu\n", length / mlp, mind, maxd);
   }
-  if((sum1 ^ sum2 ^ sum3 ^ sum4) == 0x1010) printf("bug");
-  printi("Time to sum up the array (linear scan) %.3f s (x 8 = %.3f s), bandwidth = %.1f MB/s \n",mintime,8*mintime, length * sizeof(uint64_t) / mintime / (1024.0 * 1024.0));
+}
+
+int naked_measure(uint64_t* bigarray, uint64_t* index, size_t length, size_t max_mlp) {
+
+  make_cycle(bigarray, index, length);
+
+  if (!do_csv) {
+    uint64_t sum1 = 0, sum2 = 0, sum3 = 0, sum4 = 0;
+    clock_t begin_time, end_time;
+    int sumrepeat = 10;
+    float mintime = 99999999999;
+    while (sumrepeat-- >0) {
+      begin_time = clock();
+      for(size_t i = 0; i < length - 3 * 8; i+= 32) {
+        sum1 ^= bigarray[i];
+        sum2 ^= bigarray[i + 8];
+        sum3 ^= bigarray[i + 16];
+        sum4 ^= bigarray[i + 24];
+      }
+      end_time = clock();
+      float tv = float(end_time - begin_time) / CLOCKS_PER_SEC;
+      if (tv < mintime)
+        mintime = tv;
+    }
+    if((sum1 ^ sum2 ^ sum3 ^ sum4) == 0x1010) printf("bug");
+    printi("Time to sum up the array (linear scan) %.3f s (x 8 = %.3f s), bandwidth = %.1f MB/s \n",
+        mintime, 8*mintime, length * sizeof(uint64_t) / mintime / (1024.0 * 1024.0));
+  }
 
   float time_measure[NAKED_MAX] = {};
   size_t howmanyhits = length; //1 * 4 * 5 * 6 * 7 * 8 * 9 * 11 * 13 * 17;
   int repeat = 5;
   if (do_csv) {
+    printi("Running test for length %zu\n", length);
     // printf("lanes,time,bw,ns/hit,eff,speedup\n");
     printf("%zu", length);
   } else {
@@ -171,8 +190,11 @@ int naked_measure(uint64_t* bigarray, size_t length, size_t max_mlp) {
     printi("---------------------------------------------------------------------\n");
   }
 
+  uint64_t starting_pointers[NAKED_MAX];
+
   // naked_measure_body(time_measure, bigarray, howmanyhits, repeat);
   for (size_t m = 1; m <= max_mlp; m++) {
+    setup_pointers(starting_pointers, bigarray, index, length, m);
     time_measure[m] = time_one(starting_pointers, bigarray, howmanyhits, repeat, get_method(m), m, time_measure[1], time_measure[m - 1]);
   }
 
@@ -190,9 +212,9 @@ int naked_measure(uint64_t* bigarray, size_t length, size_t max_mlp) {
         break;
       }
     }
+    printi("--------------------------------------------------------------\n");
   }
 
-  printi("--------------------------------------------------------------\n");
   return 10000;
 }
 
@@ -200,7 +222,9 @@ int main() {
   assert(do_csv >= 0 && do_csv <= 2);
   printi("CLOCKS_PER_SEC: %zu\n", (size_t)CLOCKS_PER_SEC);
   size_t max_mlp = getenv_int("MLP_MAX_MLP", 30);
-  auto array = init_array(len_end, max_mlp);
+  printi("Initializing array made of %zu 64-bit words (%5.2f MiB).\n", len_end, len_end * 8. / 1024. / 1024.);
+  uint64_t *array = (uint64_t *)malloc(sizeof(uint64_t) * len_end);
+  uint64_t *index    = (uint64_t *)malloc(sizeof(uint64_t) * len_end);
 
   if (!do_csv) {
     printi("Legend:\n"
@@ -220,6 +244,6 @@ int main() {
     size_t length = round(len_start * pow(2., i / 4.));
     if (length > len_end)
       break;
-    naked_measure(array, length, max_mlp);
+    naked_measure(array, index, length, max_mlp);
   }
 }
