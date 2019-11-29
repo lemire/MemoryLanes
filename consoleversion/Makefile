@@ -1,4 +1,4 @@
-CXXFLAGS = -O3 -std=c++11 -Wall 
+CXXFLAGS = -O3 -std=c++11 -Wall -g
 
 .PHONY = clean test
 
@@ -13,8 +13,8 @@ generated.cpp : gen.py
 	python3 gen.py > generated.cpp
 endif
 
-%.o : %.cpp
-	$(CXX) $(CXXFLAGS) -c $^
+%.o : %.cpp common.hpp
+	$(CXX) $(CXXFLAGS) -c $<
 
 test: testingmlp
 	./testingmlp
